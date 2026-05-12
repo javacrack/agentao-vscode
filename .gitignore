@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.webpack/
+*.vsix
+*.log
+.agentao/
+.vscode/
+.env
+.DS_Store
+src/agentao/

@@ -1,0 +1,285 @@
+{
+  "name": "agentao",
+  "displayName": "Agentao",
+  "description": "ACP-powered AI agent chat panel — connect to agentao via Agent Client Protocol",
+  "version": "1.0.1",
+  "author": {
+    "name": "toker.zhou"
+  },
+  "publisher": "agentao",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jin-bo/chatagent"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "AI",
+    "Chat",
+    "Other"
+  ],
+  "keywords": [
+    "agentao",
+    "acp",
+    "ai",
+    "chat",
+    "agent",
+    "copilot"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "agentao",
+          "title": "Agentao",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "agentao": [
+        {
+          "type": "webview",
+          "id": "agentao.chat",
+          "name": "Chat"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "agentao.sendMessage",
+        "title": "Agentao: Send Message",
+        "icon": "$(send)"
+      },
+      {
+        "command": "agentao.cancel",
+        "title": "Agentao: Cancel",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "agentao.newSession",
+        "title": "Agentao: New Session",
+        "icon": "$(add)"
+      },
+      {
+        "command": "agentao.clearHistory",
+        "title": "Agentao: Clear History",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "agentao.switchModel",
+        "title": "Agentao: Switch Model"
+      },
+      {
+        "command": "agentao.focusChat",
+        "title": "Agentao: Focus Chat"
+      },
+      {
+        "command": "agentao.showOutput",
+        "title": "Agentao: Show Output"
+      },
+      {
+        "command": "agentao.configure",
+        "title": "Agentao: Configure Environment",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "agentao.askAboutSelection",
+        "title": "Agentao: Ask About Selection",
+        "icon": "$(comment)"
+      },
+      {
+        "command": "agentao.explainSelection",
+        "title": "Agentao: Explain Selection",
+        "icon": "$(lightbulb)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "agentao.newSession",
+          "when": "view == agentao.chat",
+          "group": "navigation@1"
+        },
+        {
+          "command": "agentao.clearHistory",
+          "when": "view == agentao.chat",
+          "group": "navigation@2"
+        },
+        {
+          "command": "agentao.configure",
+          "when": "view == agentao.chat",
+          "group": "navigation@3"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "agentao.askAboutSelection",
+          "when": "editorTextFocus && editorHasSelection",
+          "group": "9_zzz_agentao@1"
+        },
+        {
+          "command": "agentao.explainSelection",
+          "when": "editorTextFocus && editorHasSelection",
+          "group": "9_zzz_agentao@2"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "agentao.focusChat",
+        "key": "ctrl+shift+a",
+        "mac": "cmd+shift+a",
+        "when": "true"
+      },
+      {
+        "command": "agentao.newSession",
+        "key": "ctrl+shift+n",
+        "mac": "cmd+shift+n",
+        "when": "true"
+      },
+      {
+        "command": "agentao.askAboutSelection",
+        "key": "ctrl+shift+/",
+        "mac": "cmd+shift+/",
+        "when": "editorTextFocus && editorHasSelection"
+      }
+    ],
+    "configuration": {
+      "title": "Agentao",
+      "properties": {
+        "agentao.commandPath": {
+          "type": "string",
+          "default": "agentao",
+          "description": "Path to the agentao executable (or 'agentao' if on PATH)",
+          "scope": "machine"
+        },
+        "agentao.args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "--acp",
+            "--stdio"
+          ],
+          "description": "Additional arguments to pass to the agentao command",
+          "scope": "machine"
+        },
+        "agentao.workingDirectory": {
+          "type": "string",
+          "default": "${workspaceFolder}",
+          "description": "Working directory for the agentao process",
+          "scope": "resource"
+        },
+        "agentao.env": {
+          "type": "object",
+          "default": {},
+          "description": "Extra environment variables for the agentao process",
+          "scope": "machine"
+        },
+        "agentao.rpcTimeoutMs": {
+          "type": "number",
+          "default": 180000,
+          "description": "Timeout in milliseconds for ACP RPC calls",
+          "scope": "machine"
+        },
+        "agentao.autoRestoreSession": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically restore the previous session on startup",
+          "scope": "machine"
+        },
+        "agentao.logLevel": {
+          "type": "string",
+          "enum": [
+            "debug",
+            "info",
+            "warn",
+            "error",
+            "off"
+          ],
+          "default": "info",
+          "description": "Logging verbosity for the output channel",
+          "scope": "machine"
+        },
+        "agentao.mcpServers": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "default": [],
+          "description": "MCP server configurations to pass to agentao",
+          "scope": "resource"
+        },
+        "agentao.condaPath": {
+          "type": "string",
+          "default": "",
+          "description": "Conda 可执行文件的完整路径。留空则自动在 PATH 中搜索 conda",
+          "scope": "machine"
+        },
+        "agentao.condaEnv": {
+          "type": "string",
+          "default": "",
+          "description": "Conda 环境名称，用于运行 agentao",
+          "scope": "machine"
+        },
+        "agentao.openaiApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "OPENAI_API_KEY — LLM API 密钥。留空则使用 Secret Storage 中存储的值",
+          "scope": "machine"
+        },
+        "agentao.openaiBaseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "OPENAI_BASE_URL — LLM API 基础 URL。留空则使用 OpenAI 默认地址",
+          "scope": "machine"
+        },
+        "agentao.openaiModel": {
+          "type": "string",
+          "default": "",
+          "description": "OPENAI_MODEL — 默认 LLM 模型名称。留空则使用 agentao 内置默认值",
+          "scope": "machine"
+        },
+        "agentao.condaEnv": {
+          "type": "string",
+          "default": "",
+          "description": "Conda environment name to use for running agentao. Leave empty to auto-detect or select manually",
+          "scope": "machine"
+        }
+      }
+    }
+  },
+  "files": [
+    "dist/**",
+    "media/**"
+  ],
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "webpack --mode production",
+    "compile": "webpack --mode development",
+    "watch": "webpack --mode development --watch",
+    "typecheck": "tsc --noEmit",
+    "package": "vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.90.0",
+    "@types/node": "^20.11.0",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.5.0",
+    "webpack": "^5.90.0",
+    "webpack-cli": "^5.1.4",
+    "@vscode/vsce": "^3.2.0"
+  },
+  "dependencies": {
+    "marked": "^15.0.0",
+    "highlight.js": "^11.9.0"
+  }
+}
