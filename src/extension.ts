@@ -87,6 +87,13 @@ async function restartClient(): Promise<boolean> {
       output.logError(`Agentao stderr: ${stderrBuffer}`);
     }
     
+    const detectedPath = autoDetectAgentaoPath();
+    if (detectedPath && detectedPath !== cp) {
+      await cfg.update("commandPath", detectedPath, vscode.ConfigurationTarget.Global);
+      detailedMessage += `\n\n已自动检测到 agentao 路径: ${detectedPath}`;
+      output.log(`Auto-detected agentao path: ${detectedPath}`);
+    }
+    
     vscode.window.showErrorMessage(detailedMessage);
     return false;
   }
@@ -105,6 +112,9 @@ async function restartClient(): Promise<boolean> {
   });
 
   client = newClient;
+  if (chatProvider) {
+    chatProvider.client = newClient;
+  }
   statusBar?.refresh();
   chatProvider?.clearChat();
   vscode.window.showInformationMessage("Agentao 客户端已重启，请重试对话");
@@ -293,9 +303,36 @@ export async function activate(context: vscode.ExtensionContext) {
       return { result: {} };
     });
 
-    // Model status bar
+    // Model status bar - create after session is established
     statusBar = new ModelStatusBar(client, store);
-    await statusBar.refresh();
+    
+    // Try to refresh with retry logic
+    let refreshAttempts = 0;
+    const maxAttempts = 3;
+    let refreshSuccess = false;
+    
+    while (refreshAttempts < maxAttempts && !refreshSuccess) {
+      try {
+        await statusBar.refresh();
+        refreshSuccess = true;
+        output.log("Status bar model refresh successful");
+      } catch (err) {
+        refreshAttempts++;
+        const errMsg = err instanceof Error ? err.message : String(err);
+        output.logWarn(`Status bar refresh attempt ${refreshAttempts} failed: ${errMsg}`);
+        
+        if (refreshAttempts < maxAttempts) {
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 1000 * refreshAttempts));
+        }
+      }
+    }
+    
+    if (!refreshSuccess) {
+      output.logError("Failed to initialize status bar after multiple attempts");
+      // Create status bar but show error state
+      statusBar.setStatus("$(symbol-class) error", "Model status unavailable - check configuration");
+    }
   }
 
   // Restore chat history into webview (webview 已提前注册)
@@ -424,10 +461,6 @@ export async function activate(context: vscode.ExtensionContext) {
       chatProvider?.sendMessage?.(prompt);
       await vscode.commands.executeCommand("agentao.focusChat");
     }),
-
-    vscode.commands.registerCommand("agentao.focusChat", async () => {
-      await vscode.commands.executeCommand("agentao.chat.focus");
-    }),
   );
 
   output.log("Agentao extension ready");
@@ -455,6 +488,7 @@ async function resolveAgentCommand(
 ): Promise<{ command: string; args: string[] }> {
   const condaExe = condaPath || "conda";
   const hasConda = commandExists(condaExe);
+  const hasUv = commandExists("uv");
 
   // 如果配置了 conda 环境，优先使用 conda 环境
   if (condaEnv.trim() && hasConda) {
@@ -481,6 +515,11 @@ async function resolveAgentCommand(
 
   // 检查是否可以在当前环境中运行 python -m agentao
   if (commandPath === "agentao") {
+    // 先尝试 uv run agentao（如果安装了 uv）
+    if (hasUv) {
+      output.log("使用 uv run agentao 方式启动");
+      return { command: "uv", args: ["run", "agentao", ...args] };
+    }
     output.log("使用 python -m agentao 方式启动");
     return { command: "python", args: ["-m", "agentao", ...args] };
   }
@@ -488,6 +527,12 @@ async function resolveAgentCommand(
   // 检查 commandPath 是否在 PATH 中
   if (commandExists(commandPath)) {
     return { command: commandPath, args };
+  }
+
+  // 如果有 uv，尝试使用 uv run agentao
+  if (hasUv) {
+    output.log("尝试使用 uv run agentao");
+    return { command: "uv", args: ["run", "agentao", ...args] };
   }
 
   // 如果有 conda 但没有配置或配置的环境不存在，列出可用环境让用户选择
@@ -518,7 +563,8 @@ async function resolveAgentCommand(
     }
   }
 
-  throw new Error(`未找到 agentao 命令，且未检测到 conda（${condaExe}）。请确保 agentao 已安装或配置正确的 condaPath。`);
+  const envHint = hasUv ? "或使用 uv 安装 agentao" : "";
+  throw new Error(`未找到 agentao 命令，且未检测到 conda（${condaExe}）。${envHint}请确保 agentao 已安装或配置正确的环境。`);
 }
 
 function commandExists(command: string): boolean {
@@ -642,6 +688,12 @@ export function autoDetectAgentaoPath(condaExe?: string): string {
   const exeName = process.platform === "win32" ? "agentao.exe" : "agentao";
   // First check PATH
   if (commandExists(exeName)) return exeName;
+
+  // Check uv environment
+  if (commandExists("uv")) {
+    // uv run agentao should work if agentao is installed via uv
+    return "agentao";
+  }
 
   const conda = condaExe || autoDetectCondaPath() || "conda";
   const envs = listCondaEnvironments(conda);

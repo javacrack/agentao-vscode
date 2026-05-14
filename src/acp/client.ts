@@ -213,13 +213,28 @@ export class ACPClient implements Disposable {
 
   async listModels(): Promise<ListModelsResult> {
     if (!this._sessionId) throw new Error("No active session");
-    const r = await this.call("session/list_models", { sessionId: this._sessionId });
-    return r as unknown as ListModelsResult;
+    try {
+      const r = await this.call("session/list_models", { sessionId: this._sessionId });
+      return r as unknown as ListModelsResult;
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      if (errMsg.includes("set_model requires at least one of model")) {
+        await this.call("session/set_model", { 
+          sessionId: this._sessionId, 
+          model: "gpt-4o-mini",
+          contextLength: 8192,
+          maxTokens: 4096 
+        });
+        const r = await this.call("session/list_models", { sessionId: this._sessionId });
+        return r as unknown as ListModelsResult;
+      }
+      throw err;
+    }
   }
 
   async setModel(modelName: string): Promise<void> {
     if (!this._sessionId) throw new Error("No active session");
-    await this.call("session/set_model", { sessionId: this._sessionId, modelName });
+    await this.call("session/set_model", { sessionId: this._sessionId, model: modelName });
   }
 
   onNotification(method: string, handler: (params: JsonObject) => void): void {

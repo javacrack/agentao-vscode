@@ -2,11 +2,11 @@
   "name": "agentao",
   "displayName": "Agentao",
   "description": "ACP-powered AI agent chat panel — connect to agentao via Agent Client Protocol",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "author": {
     "name": "toker.zhou"
   },
-  "publisher": "agentao",
+  "publisher": "javacrack",
   "license": "MIT",
   "repository": {
     "type": "git",

@@ -97,6 +97,22 @@ export class ConfigPanel {
         break;
       }
 
+      case "resetAll": {
+        await config.update("openaiApiKey", "", vscode.ConfigurationTarget.Global);
+        await config.update("openaiBaseUrl", "", vscode.ConfigurationTarget.Global);
+        await config.update("openaiModel", "", vscode.ConfigurationTarget.Global);
+        await config.update("condaPath", "", vscode.ConfigurationTarget.Global);
+        await config.update("condaEnv", "", vscode.ConfigurationTarget.Global);
+        await config.update("commandPath", "", vscode.ConfigurationTarget.Global);
+        await this.store.setApiKey("");
+        this.panel.webview.postMessage({ 
+          type: "resetDone",
+          detectedAgentaoPath: this.detectedAgentaoPath,
+          detectedCondaPath: this.detectedCondaPath,
+        });
+        break;
+      }
+
       case "saveAll": {
         const values = msg.values!;
         if (values.openaiApiKey && values.openaiApiKey !== "********") {
@@ -108,6 +124,10 @@ export class ConfigPanel {
         await config.update("condaEnv", values.condaEnv || "", vscode.ConfigurationTarget.Global);
         await config.update("commandPath", values.commandPath || this.detectedAgentaoPath || "agentao", vscode.ConfigurationTarget.Global);
         this.panel.webview.postMessage({ type: "saved" });
+
+        vscode.commands.executeCommand("agentao.chat.focus").then(() => {
+          vscode.commands.executeCommand("agentao.chat.refreshConfig").then(() => {}, () => {});
+        }, () => {});
 
         // Ask user if they want to restart now
         const restart = await vscode.window.showInformationMessage(
@@ -397,12 +417,7 @@ export class ConfigPanel {
     }
 
     function resetAll() {
-      document.getElementById("openaiApiKey").value = "";
-      document.getElementById("openaiBaseUrl").value = "";
-      document.getElementById("openaiModel").value = "";
-      document.getElementById("condaPath").value = "";
-      document.getElementById("condaEnv").value = "";
-      document.getElementById("commandPath").value = detectedAgentaoPath || "agentao";
+      vscode.postMessage({ type: "resetAll" });
     }
 
     window.addEventListener("message", (e) => {
@@ -467,6 +482,40 @@ export class ConfigPanel {
       }
       if (e.data.type === "saved") {
         const notif = document.getElementById("save-notification");
+        notif.style.display = "block";
+        setTimeout(() => { notif.style.display = "none"; }, 2000);
+      }
+      if (e.data.type === "resetDone") {
+        document.getElementById("openaiApiKey").value = "";
+        document.getElementById("openaiBaseUrl").value = "";
+        document.getElementById("openaiModel").value = "";
+        document.getElementById("condaPath").value = "";
+        document.getElementById("condaEnv").value = "";
+        
+        detectedAgentaoPath = e.data.detectedAgentaoPath || "";
+        document.getElementById("commandPath").value = detectedAgentaoPath || "agentao";
+        
+        const cmdHint = document.getElementById("agentao-hint");
+        if (detectedAgentaoPath) {
+          cmdHint.textContent = "(已自动检测: " + detectedAgentaoPath + ")";
+          cmdHint.classList.remove("warn");
+        } else {
+          cmdHint.textContent = "(未在 PATH 中找到 agentao)";
+          cmdHint.classList.add("warn");
+        }
+        
+        const condaHint = document.getElementById("conda-hint");
+        const detectedCondaPath = e.data.detectedCondaPath || "";
+        if (detectedCondaPath) {
+          condaHint.textContent = "(已自动检测: " + detectedCondaPath + ")";
+          condaHint.classList.remove("warn");
+        } else {
+          condaHint.textContent = "(未检测到 conda)";
+          condaHint.classList.add("warn");
+        }
+        
+        const notif = document.getElementById("save-notification");
+        notif.textContent = "配置已重置 ✓";
         notif.style.display = "block";
         setTimeout(() => { notif.style.display = "none"; }, 2000);
       }

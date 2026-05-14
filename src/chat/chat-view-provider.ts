@@ -18,6 +18,7 @@ type WebviewMessage =
   | { type: "searchSymbols"; query: string }
   | { type: "exportSession" }
   | { type: "getConfigStatus" }
+  | { type: "refreshConfig" }
   | { type: "reconnect" };
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
@@ -29,14 +30,22 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
-    private readonly _client: ACPClient,
+    client: ACPClient,
     private readonly _store: SessionStore,
     private readonly _output: OutputChannel,
     private readonly _statusBar?: ModelStatusBar,
     private readonly _reconnect?: () => Promise<boolean>,
   ) {
+    this._client = client;
     this._setupAcpEvents();
   }
+
+  set client(client: ACPClient) {
+    this._client = client;
+    this._setupAcpEvents();
+  }
+
+  private _client: ACPClient;
 
   private _setupAcpEvents(): void {
     if (!this._client) {
@@ -129,8 +138,13 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.html = this._getHtml(webviewView.webview);
 
     // Send initial config status so the webview knows if API key is set
-    this._store.getApiKey().then((key) => {
-      this._postToWebview({ type: "configStatus", hasApiKey: !!key });
+    this._sendConfigStatus();
+
+    // Refresh config status when view becomes visible
+    webviewView.onDidChangeVisibility(() => {
+      if (webviewView.visible) {
+        this._sendConfigStatus();
+      }
     });
 
     webviewView.webview.onDidReceiveMessage(async (msg: WebviewMessage) => {
@@ -178,6 +192,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
           break;
         case "getConfigStatus":
           this._postToWebview({ type: "configStatus", hasApiKey: !!(await this._store.getApiKey()) });
+          break;
+        case "refreshConfig":
+          this._sendConfigStatus();
           break;
         case "reconnect": {
           const doReconnect = this._reconnect;
@@ -288,6 +305,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       status: m.status,
       toolCalls: m.toolCalls,
     };
+  }
+
+  private _sendConfigStatus(): void {
+    this._store.getApiKey().then((key) => {
+      this._postToWebview({ type: "configStatus", hasApiKey: !!key });
+    });
   }
 
   private _postToWebview(msg: Record<string, unknown>): void {

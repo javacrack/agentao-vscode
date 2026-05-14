@@ -223,11 +223,10 @@ function renderAllMessages(messages: MsgData[]) {
   }
 
   lastMessageTime = 0;
-  const messagesToRender = messages.filter((m) => !existing.has(m.id));
 
   for (const m of messages) {
-    // Insert time separator if needed
-    if (messagesToRender.includes(m) && lastMessageTime > 0) {
+    // Insert time separator if needed (only for new messages)
+    if (!existing.has(m.id) && lastMessageTime > 0) {
       const timeDiff = (m.timestamp || Date.now()) - lastMessageTime;
       if (timeDiff > TIME_SEPARATOR_MS) {
         insertTimeSeparator((m.timestamp || Date.now()) - timeDiff / 2);
@@ -238,17 +237,7 @@ function renderAllMessages(messages: MsgData[]) {
     let el = messagesEl.querySelector(`[data-msg-id="${m.id}"]`) as HTMLElement;
     if (!el) {
       el = createMessageEl(m);
-      const timemarkEl = messagesEl.querySelector(`[data-time-separator]`);
-      if (timemarkEl && m.timestamp) {
-        const sepTime = parseInt(timemarkEl.getAttribute("data-time-separator") || "0");
-        if (m.timestamp > sepTime) {
-          messagesEl.insertBefore(el, timemarkEl.nextSibling);
-        } else {
-          messagesEl.insertBefore(el, timemarkEl);
-        }
-      } else {
-        messagesEl.appendChild(el);
-      }
+      messagesEl.appendChild(el);
     } else {
       updateMessageEl(el, m);
     }
